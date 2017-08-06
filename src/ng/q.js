@@ -343,6 +343,13 @@ function qFactory(nextTick, exceptionHandler, errorOnUnhandledRejections) {
     }
   });
 
+  function PassToExceptionHandlerWrapper(error) {
+    this.error = error;
+    this.message = error.message;
+  }
+
+  PassToExceptionHandlerWrapper.prototype = Object.create(Error.prototype);
+
   function processQueue(state) {
     var fn, promise, pending;
 
@@ -363,7 +370,15 @@ function qFactory(nextTick, exceptionHandler, errorOnUnhandledRejections) {
             rejectPromise(promise, state.value);
           }
         } catch (e) {
-          rejectPromise(promise, e);
+          var passToExceptionHandler = e && e instanceof PassToExceptionHandlerWrapper,
+            error = passToExceptionHandler ? e.error : e;
+
+          rejectPromise(promise, error);
+
+          // This error is explicitly marked for being passed to the $exceptionHandler
+          if (passToExceptionHandler) {
+            exceptionHandler(error);
+          }
         }
       }
     } finally {
@@ -668,6 +683,7 @@ function qFactory(nextTick, exceptionHandler, errorOnUnhandledRejections) {
   $Q.resolve = resolve;
   $Q.all = all;
   $Q.race = race;
+  $Q.$$PassToExceptionHandlerWrapper = PassToExceptionHandlerWrapper;
 
   return $Q;
 }

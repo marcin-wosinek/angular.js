@@ -1323,7 +1323,7 @@ angular.mock.dump = function(object) {
   ```
  */
 angular.mock.$httpBackendDecorator =
-  ['$rootScope', '$timeout', '$delegate', createHttpBackendMock];
+  ['$q', '$rootScope', '$timeout', '$delegate', createHttpBackendMock];
 
 /**
  * General factory function for $httpBackend mock.
@@ -1339,7 +1339,7 @@ angular.mock.$httpBackendDecorator =
  * @param {Object=} $browser Auto-flushing enabled if specified
  * @return {Object} Instance of $httpBackend mock
  */
-function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
+function createHttpBackendMock($q, $rootScope, $timeout, $delegate, $browser) {
   var definitions = [],
       expectations = [],
       responses = [],
@@ -1438,10 +1438,18 @@ function createHttpBackendMock($rootScope, $timeout, $delegate, $browser) {
         return;
       }
     }
-    throw wasExpected ?
+
+    try {
+      // Throw the error to ensure the `stack` property is populated.
+      throw wasExpected ?
         new Error('No response defined !') :
         new Error('Unexpected request: ' + method + ' ' + url + '\n' +
                   (expectation ? 'Expected ' + expectation : 'No more request expected'));
+    } catch (e) {
+      // In addition to be being converted to a rejection, this error also needs to be passed to
+      // the $exceptionHandler and be rethrown (so that the test fails).
+      throw new $q.$$PassToExceptionHandlerWrapper(e);
+    }
   }
 
   /**
@@ -2706,7 +2714,7 @@ angular.module('ngMockE2E', ['ng']).config(['$provide', function($provide) {
  */
 angular.mock.e2e = {};
 angular.mock.e2e.$httpBackendDecorator =
-  ['$rootScope', '$timeout', '$delegate', '$browser', createHttpBackendMock];
+  ['$q', '$rootScope', '$timeout', '$delegate', '$browser', createHttpBackendMock];
 
 
 /**
